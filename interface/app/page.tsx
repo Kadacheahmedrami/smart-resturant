@@ -73,7 +73,7 @@ export default function Home() {
                   <ChefHat className="h-6 w-6" />
                 </div>
                 <h3 className="text-xl font-heading mb-2">Chef Dashboard</h3>
-                <p className="text-muted-foreground mb-4">For restaurant staff to manage incoming orders.</p>
+                <p className="text-muted-foreground mb-4">For restaurant staff and chefs to manage all incoming orders from clients.</p>
                 <Link href="/chef">
                   <Button className="group">
                     Chef Login
