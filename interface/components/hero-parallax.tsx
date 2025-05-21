@@ -41,7 +41,7 @@ export function HeroParallax() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.3 }}
-          className="text-lg md:text-xl text-white/90 mb-8 max-w-2xl mx-auto"
+          className="text-lg font-extrabold md:text-xl text-white/90 mb-8 max-w-2xl mx-auto"
         >
           A beautiful, award-winning interface for managing restaurant orders with real-time status updates
         </motion.p>

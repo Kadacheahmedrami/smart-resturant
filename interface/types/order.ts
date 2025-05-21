@@ -24,3 +24,7 @@ export interface Order {
   createdAt: string
   updatedAt: string
 }
+
+
+// types/order.ts
+export type OrderStatus = "PENDING" | "ACCEPTED" | "REJECTED" | "READY";

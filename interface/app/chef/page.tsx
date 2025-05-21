@@ -14,7 +14,7 @@ import { ESP32StatusButton } from "@/components/esp32-status-button"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { useESP32 } from "@/lib/esp32-context"
 import { pusherClient } from "@/lib/pusher"
-import type { Order } from "@/types/order"
+import type { Order, OrderStatus } from "@/types/order"
 
 export default function ChefPage() {
   const [orders, setOrders] = useState<Order[]>([])
@@ -106,7 +106,7 @@ export default function ChefPage() {
     }
   }, [toast])
 
-  const updateOrderStatus = async (orderId: string, newStatus: string) => {
+  const updateOrderStatus = async (orderId: string, newStatus: OrderStatus) => {
     try {
       const response = await fetch(`/api/orders/${orderId}`, {
         method: "PATCH",
