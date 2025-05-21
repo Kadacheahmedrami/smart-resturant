@@ -1,10 +1,11 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { pusher } from "@/lib/pusher"
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const id = params.id
+    // Await the params promise to get the actual values
+    const { id } = await params
 
     const order = await prisma.order.findUnique({
       where: { id },
@@ -25,9 +26,10 @@ export async function GET(request: Request, { params }: { params: { id: string }
   }
 }
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const id = params.id
+    // Await the params promise to get the actual values
+    const { id } = await params
     const body = await request.json()
 
     // Validate request body
@@ -54,8 +56,13 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       },
     })
 
-    // Trigger Pusher event for real-time updates
+    // Trigger Pusher event for real-time updates to both chef dashboard and customer view
     await pusher.trigger(`order-${id}`, "order-updated", {
+      order: updatedOrder,
+    })
+
+    // Also trigger on the general orders channel for the chef dashboard
+    await pusher.trigger("orders", "order-updated", {
       order: updatedOrder,
     })
 

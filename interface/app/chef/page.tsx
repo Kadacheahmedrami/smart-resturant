@@ -1,8 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
-import { ArrowLeft, Home, X, Check, Eye, Clock } from "lucide-react"
+import { ArrowLeft, Home, X, Check, Eye, Clock, Bell } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
@@ -10,7 +11,9 @@ import { StatusBadge } from "@/components/status-badge"
 import { OrderDetailsModal } from "@/components/order-details-modal"
 import { useToast } from "@/hooks/use-toast"
 import { ESP32StatusButton } from "@/components/esp32-status-button"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { useESP32 } from "@/lib/esp32-context"
+import { pusherClient } from "@/lib/pusher"
 import type { Order } from "@/types/order"
 
 export default function ChefPage() {
@@ -19,8 +22,21 @@ export default function ChefPage() {
   const [error, setError] = useState<string | null>(null)
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [newOrderAlert, setNewOrderAlert] = useState<string | null>(null)
+  const notificationSound = useRef<HTMLAudioElement | null>(null)
   const { toast } = useToast()
   const { isConnected, sendStatus } = useESP32()
+
+  // Initialize audio element for notification sound
+  useEffect(() => {
+    notificationSound.current = new Audio("/notification.mp3")
+    return () => {
+      if (notificationSound.current) {
+        notificationSound.current.pause()
+        notificationSound.current = null
+      }
+    }
+  }, [])
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -49,10 +65,45 @@ export default function ChefPage() {
 
     fetchOrders()
 
-    // Poll for new orders every 10 seconds
-    const intervalId = setInterval(fetchOrders, 10000)
+    // Subscribe to Pusher channel for real-time updates
+    const channel = pusherClient.subscribe("orders")
 
-    return () => clearInterval(intervalId)
+    // Listen for new orders
+    channel.bind("order-created", (data: { order: Order }) => {
+      // Play notification sound
+      if (notificationSound.current) {
+        notificationSound.current.play().catch((err) => console.error("Error playing notification:", err))
+      }
+
+      // Add the new order to the list
+      setOrders((prevOrders) => [data.order, ...prevOrders])
+
+      // Show notification
+      setNewOrderAlert(data.order.id)
+      setTimeout(() => setNewOrderAlert(null), 5000)
+
+      toast({
+        title: "New Order Received",
+        description: `Order #${data.order.id.substring(0, 8)}... has been placed`,
+      })
+    })
+
+    // Listen for order updates
+    channel.bind("order-updated", (data: { order: Order }) => {
+      setOrders((prevOrders) => prevOrders.map((order) => (order.id === data.order.id ? data.order : order)))
+
+      if (selectedOrder?.id === data.order.id) {
+        setSelectedOrder(data.order)
+      }
+    })
+
+    // Poll for new orders every 30 seconds as a fallback
+    const intervalId = setInterval(fetchOrders, 30000)
+
+    return () => {
+      clearInterval(intervalId)
+      pusherClient.unsubscribe("orders")
+    }
   }, [toast])
 
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
@@ -85,7 +136,7 @@ export default function ChefPage() {
 
       toast({
         title: `Order ${newStatus.toLowerCase()}`,
-        description: `Order #${orderId} has been ${newStatus.toLowerCase()}`,
+        description: `Order #${orderId.substring(0, 8)}... has been ${newStatus.toLowerCase()}`,
       })
     } catch (error) {
       console.error("Error updating order status:", error)
@@ -102,6 +153,11 @@ export default function ChefPage() {
     setIsModalOpen(true)
   }
 
+  // Filter orders by status for better organization
+  const pendingOrders = orders.filter((order) => order.status === "PENDING")
+  const acceptedOrders = orders.filter((order) => order.status === "ACCEPTED")
+  const completedOrders = orders.filter((order) => order.status === "READY" || order.status === "REJECTED")
+
   return (
     <div className="min-h-screen flex flex-col">
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -113,9 +169,10 @@ export default function ChefPage() {
                 <span className="sr-only">Home</span>
               </Button>
             </Link>
-            <h1 className="text-xl font-bold">Chef Dashboard</h1>
+            <h1 className="text-xl font-heading">Chef Dashboard</h1>
           </div>
           <div className="flex items-center gap-4">
+            <ThemeToggle />
             <ESP32StatusButton />
             <Link href="/">
               <Button variant="ghost" size="sm" className="gap-1">
@@ -129,7 +186,9 @@ export default function ChefPage() {
       <main className="flex-1 container py-10">
         <div className="max-w-4xl mx-auto">
           <div className="mb-8">
-            <h2 className="text-3xl font-bold mb-2">Incoming Orders</h2>
+            <h2 className="text-3xl font-heading mb-2 bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/70 dark:from-primary dark:to-primary/70">
+              Incoming Orders
+            </h2>
             <p className="text-muted-foreground">Accept or reject customer orders</p>
           </div>
 
@@ -149,74 +208,218 @@ export default function ChefPage() {
               <p className="text-muted-foreground">All orders have been processed.</p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {orders.map((order) => (
-                <Card key={order.id} className={order.status === "READY" ? "opacity-60" : ""}>
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <h3 className="font-bold text-lg">Order #{order.id}</h3>
-                        <p className="text-sm text-muted-foreground">{new Date(order.createdAt).toLocaleString()}</p>
-                      </div>
-                      <StatusBadge status={order.status} />
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pb-2">
-                    <div className="space-y-1">
-                      {order.items.slice(0, 2).map((item, index) => (
-                        <div key={index} className="flex justify-between">
-                          <p>
-                            {item.quantity}x {item.name}
-                          </p>
-                        </div>
+            <div className="space-y-8">
+              {pendingOrders.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-4 flex items-center">
+                    <span className="inline-block w-2 h-2 bg-amber-500 rounded-full mr-2"></span>
+                    Pending Orders ({pendingOrders.length})
+                  </h3>
+                  <div className="space-y-4">
+                    <AnimatePresence>
+                      {pendingOrders.map((order) => (
+                        <motion.div
+                          key={order.id}
+                          initial={newOrderAlert === order.id ? { scale: 0.95, opacity: 0 } : false}
+                          animate={{ scale: 1, opacity: 1 }}
+                          transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                          className={newOrderAlert === order.id ? "relative" : ""}
+                        >
+                          {newOrderAlert === order.id && (
+                            <motion.div
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              exit={{ opacity: 0 }}
+                              className="absolute -right-2 -top-2 bg-red-500 text-white rounded-full p-1 z-10"
+                            >
+                              <Bell className="h-4 w-4" />
+                            </motion.div>
+                          )}
+                          <Card
+                            className={`border-amber-200 dark:border-amber-900/30 ${
+                              newOrderAlert === order.id
+                                ? "shadow-lg ring-2 ring-amber-500 dark:ring-amber-400"
+                                : "shadow-sm hover:shadow-md"
+                            } transition-all duration-300`}
+                          >
+                            <CardHeader className="pb-2 bg-gradient-to-r from-amber-50 to-amber-100/50 dark:from-amber-900/20 dark:to-amber-900/10">
+                              <div className="flex justify-between items-center">
+                                <div>
+                                  <h3 className="font-bold text-lg">Order #{order.id.substring(0, 8)}...</h3>
+                                  <p className="text-sm text-muted-foreground">
+                                    {new Date(order.createdAt).toLocaleString()}
+                                  </p>
+                                </div>
+                                <StatusBadge status={order.status} />
+                              </div>
+                            </CardHeader>
+                            <CardContent className="pb-2">
+                              <div className="space-y-1">
+                                {order.items.slice(0, 2).map((item, index) => (
+                                  <div key={index} className="flex justify-between">
+                                    <p>
+                                      {item.quantity}x {item.name}
+                                    </p>
+                                  </div>
+                                ))}
+                                {order.items.length > 2 && (
+                                  <p className="text-sm text-muted-foreground">+{order.items.length - 2} more items</p>
+                                )}
+                              </div>
+                            </CardContent>
+                            <CardFooter className="flex justify-between pt-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openOrderDetails(order)}
+                                className="gap-1"
+                              >
+                                <Eye className="h-4 w-4" />
+                                View Details
+                              </Button>
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => updateOrderStatus(order.id, "REJECTED")}
+                                  className="border-red-200 hover:bg-red-100 hover:text-red-600 gap-1 dark:border-red-900/30 dark:hover:bg-red-900/30"
+                                >
+                                  <X className="h-4 w-4" />
+                                  Reject
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={() => updateOrderStatus(order.id, "ACCEPTED")}
+                                  className="bg-green-600 hover:bg-green-700 gap-1"
+                                >
+                                  <Check className="h-4 w-4" />
+                                  Accept
+                                </Button>
+                              </div>
+                            </CardFooter>
+                          </Card>
+                        </motion.div>
                       ))}
-                      {order.items.length > 2 && (
-                        <p className="text-sm text-muted-foreground">+{order.items.length - 2} more items</p>
-                      )}
-                    </div>
-                  </CardContent>
-                  <CardFooter className="flex justify-between pt-2">
-                    <Button variant="outline" size="sm" onClick={() => openOrderDetails(order)} className="gap-1">
-                      <Eye className="h-4 w-4" />
-                      View Details
-                    </Button>
-                    <div className="flex gap-2">
-                      {order.status === "PENDING" && (
-                        <>
+                    </AnimatePresence>
+                  </div>
+                </div>
+              )}
+
+              {acceptedOrders.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-4 flex items-center">
+                    <span className="inline-block w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                    In Progress ({acceptedOrders.length})
+                  </h3>
+                  <div className="space-y-4">
+                    {acceptedOrders.map((order) => (
+                      <Card
+                        key={order.id}
+                        className="border-green-200 dark:border-green-900/30 shadow-sm hover:shadow-md transition-all duration-300"
+                      >
+                        <CardHeader className="pb-2 bg-gradient-to-r from-green-50 to-green-100/50 dark:from-green-900/20 dark:to-green-900/10">
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <h3 className="font-bold text-lg">Order #{order.id.substring(0, 8)}...</h3>
+                              <p className="text-sm text-muted-foreground">
+                                {new Date(order.createdAt).toLocaleString()}
+                              </p>
+                            </div>
+                            <StatusBadge status={order.status} />
+                          </div>
+                        </CardHeader>
+                        <CardContent className="pb-2">
+                          <div className="space-y-1">
+                            {order.items.slice(0, 2).map((item, index) => (
+                              <div key={index} className="flex justify-between">
+                                <p>
+                                  {item.quantity}x {item.name}
+                                </p>
+                              </div>
+                            ))}
+                            {order.items.length > 2 && (
+                              <p className="text-sm text-muted-foreground">+{order.items.length - 2} more items</p>
+                            )}
+                          </div>
+                        </CardContent>
+                        <CardFooter className="flex justify-between pt-2">
+                          <Button variant="outline" size="sm" onClick={() => openOrderDetails(order)} className="gap-1">
+                            <Eye className="h-4 w-4" />
+                            View Details
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => updateOrderStatus(order.id, "READY")}
+                            className="bg-blue-600 hover:bg-blue-700 gap-1"
+                          >
+                            <Clock className="h-4 w-4" />
+                            Mark Ready
+                          </Button>
+                        </CardFooter>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {completedOrders.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-4 flex items-center">
+                    <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                    Completed Orders ({completedOrders.length})
+                  </h3>
+                  <div className="space-y-4">
+                    {completedOrders.slice(0, 5).map((order) => (
+                      <Card
+                        key={order.id}
+                        className="opacity-80 hover:opacity-100 border-muted shadow-sm transition-all duration-300"
+                      >
+                        <CardHeader className="pb-2 bg-muted/30">
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <h3 className="font-bold text-lg">Order #{order.id.substring(0, 8)}...</h3>
+                              <p className="text-sm text-muted-foreground">
+                                {new Date(order.createdAt).toLocaleString()}
+                              </p>
+                            </div>
+                            <StatusBadge status={order.status} />
+                          </div>
+                        </CardHeader>
+                        <CardContent className="pb-2">
+                          <div className="space-y-1">
+                            {order.items.slice(0, 2).map((item, index) => (
+                              <div key={index} className="flex justify-between">
+                                <p>
+                                  {item.quantity}x {item.name}
+                                </p>
+                              </div>
+                            ))}
+                            {order.items.length > 2 && (
+                              <p className="text-sm text-muted-foreground">+{order.items.length - 2} more items</p>
+                            )}
+                          </div>
+                        </CardContent>
+                        <CardFooter className="flex justify-between pt-2">
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => updateOrderStatus(order.id, "REJECTED")}
-                            className="border-red-200 hover:bg-red-100 hover:text-red-600 gap-1"
+                            onClick={() => openOrderDetails(order)}
+                            className="gap-1 w-full"
                           >
-                            <X className="h-4 w-4" />
-                            Reject
+                            <Eye className="h-4 w-4" />
+                            View Details
                           </Button>
-                          <Button
-                            size="sm"
-                            onClick={() => updateOrderStatus(order.id, "ACCEPTED")}
-                            className="bg-green-600 hover:bg-green-700 gap-1"
-                          >
-                            <Check className="h-4 w-4" />
-                            Accept
-                          </Button>
-                        </>
-                      )}
-
-                      {order.status === "ACCEPTED" && (
-                        <Button
-                          size="sm"
-                          onClick={() => updateOrderStatus(order.id, "READY")}
-                          className="bg-blue-600 hover:bg-blue-700 gap-1"
-                        >
-                          <Clock className="h-4 w-4" />
-                          Mark Ready
-                        </Button>
-                      )}
-                    </div>
-                  </CardFooter>
-                </Card>
-              ))}
+                        </CardFooter>
+                      </Card>
+                    ))}
+                    {completedOrders.length > 5 && (
+                      <p className="text-center text-sm text-muted-foreground">
+                        +{completedOrders.length - 5} more completed orders
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -253,6 +456,9 @@ export default function ChefPage() {
           }
         />
       )}
+
+      {/* Hidden audio element for notification sound */}
+      <audio ref={notificationSound} src="/notification.mp3" preload="auto" />
     </div>
   )
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { pusher } from "@/lib/pusher"
 
 export async function GET() {
   try {
@@ -45,6 +46,11 @@ export async function POST(request: Request) {
       include: {
         items: true,
       },
+    })
+
+    // Trigger Pusher event for real-time updates to the chef dashboard
+    await pusher.trigger("orders", "order-created", {
+      order: order,
     })
 
     return NextResponse.json(order, { status: 201 })
