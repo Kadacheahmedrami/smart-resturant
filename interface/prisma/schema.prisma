@@ -1,0 +1,60 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrderStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  READY
+}
+
+model MenuItem {
+  id          Int         @id @default(autoincrement())
+  name        String
+  description String
+  price       Float
+  image       String?
+  category    String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  orderItems  OrderItem[]
+}
+
+model Order {
+  id        String      @id @default(uuid())
+  status    OrderStatus @default(PENDING)
+  items     OrderItem[]
+  rating    Rating?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+}
+
+model OrderItem {
+  id         String   @id @default(uuid())
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+  menuItemId Int
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId    String
+  quantity   Int
+  name       String   // Denormalized for historical record
+  price      Float    // Denormalized for historical record
+  notes      String?
+}
+
+model Rating {
+  id        String   @id @default(uuid())
+  score     Int      // 1-5 rating
+  comment   String?
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId   String   @unique
+  createdAt DateTime @default(now())
+}
