@@ -5,11 +5,12 @@ import { Button } from "@/components/ui/button"
 import { ESP32StatusButton } from "@/components/esp32-status-button"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { HeroParallax } from "@/components/hero-parallax"
+import { MobileNav } from "@/components/mobile-nav"
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen  flex-col">
-      <header className="fixed top-0 z-50  w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <div className="flex min-h-screen flex-col">
+      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-4">
             <h1 className="text-xl font-heading">Gourmet Status</h1>
@@ -34,6 +35,7 @@ export default function Home() {
           <div className="flex items-center gap-4">
             <ThemeToggle />
             <ESP32StatusButton />
+            <MobileNav />
           </div>
         </div>
       </header>
@@ -73,7 +75,7 @@ export default function Home() {
                   <ChefHat className="h-6 w-6" />
                 </div>
                 <h3 className="text-xl font-heading mb-2">Chef Dashboard</h3>
-                <p className="text-muted-foreground mb-4">For restaurant staff and chefs to manage all incoming orders from clients.</p>
+                <p className="text-muted-foreground mb-4">For restaurant staff to manage incoming orders.</p>
                 <Link href="/chef">
                   <Button className="group">
                     Chef Login

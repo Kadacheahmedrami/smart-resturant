@@ -1,16 +1,12 @@
 "use client"
 
+import { DialogFooter } from "@/components/ui/dialog"
+
+import Image from "next/image"
 import { Check, X, Clock } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { StatusBadge } from "@/components/status-badge"
 import type { Order } from "@/types/order"
 
@@ -31,7 +27,7 @@ export function OrderDetailsModal({ order, isOpen, onClose, onAccept, onReject, 
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex justify-between items-center">
-            <span>Order #{order.id}</span>
+            <span>Order #{order.id.substring(0, 8)}...</span>
             <StatusBadge status={order.status} />
           </DialogTitle>
           <DialogDescription>
@@ -45,13 +41,25 @@ export function OrderDetailsModal({ order, isOpen, onClose, onAccept, onReject, 
             <div className="space-y-3">
               {order.items.map((item, index) => (
                 <div key={index} className="border-b pb-3 last:border-0">
-                  <div className="flex justify-between">
-                    <p className="font-medium">
-                      {item.quantity}x {item.name}
-                    </p>
-                    <p>${(item.price * item.quantity).toFixed(2)}</p>
+                  <div className="grid grid-cols-[60px_1fr] gap-3">
+                    <div className="relative h-14 w-14 rounded-md overflow-hidden">
+                      <Image
+                        src={`/placeholder.svg?height=60&width=60&text=${encodeURIComponent(item.name)}`}
+                        alt={item.name}
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                    <div>
+                      <div className="flex justify-between">
+                        <p className="font-medium">
+                          {item.quantity}x {item.name}
+                        </p>
+                        <p>${(item.price * item.quantity).toFixed(2)}</p>
+                      </div>
+                      {item.notes && <p className="text-sm text-muted-foreground mt-1">Note: {item.notes}</p>}
+                    </div>
                   </div>
-                  {item.notes && <p className="text-sm text-muted-foreground mt-1">Note: {item.notes}</p>}
                 </div>
               ))}
             </div>

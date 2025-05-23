@@ -10,7 +10,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { StatusBadge } from "@/components/status-badge"
 import { StarRating } from "@/components/star-rating"
 import { useToast } from "@/hooks/use-toast"
-import { useESP32 } from "@/lib/esp32-context"
 import { pusherClient } from "@/lib/pusher"
 import { PaymentDialog } from "@/components/payment-dialog"
 import { Badge } from "@/components/ui/badge"
@@ -29,7 +28,6 @@ export function OrderClient({ initialOrder, initialError, orderId }: OrderClient
   const [isPaid, setIsPaid] = useState(false)
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
   const { toast } = useToast()
-  const { isConnected, sendStatus } = useESP32()
 
   useEffect(() => {
     // Check if the order has a payment status stored in localStorage
@@ -38,10 +36,6 @@ export function OrderClient({ initialOrder, initialError, orderId }: OrderClient
       setIsPaid(true)
     }
 
-    // If we already have the order data from the server, send the status to ESP32 if connected
-    if (initialOrder && isConnected && initialOrder.status) {
-      sendStatus(initialOrder.status)
-    }
 
     // If we don't have initial order data and there's no error, fetch it
     if (!initialOrder && !initialError) {
@@ -56,10 +50,7 @@ export function OrderClient({ initialOrder, initialError, orderId }: OrderClient
           const data = await response.json()
           setOrder(data)
 
-          // If ESP32 is connected, send the status
-          if (isConnected && data.status) {
-            sendStatus(data.status)
-          }
+      
         } catch (err) {
           console.error("Error fetching order:", err)
           setError("Failed to fetch order details. Please try again.")
@@ -78,11 +69,7 @@ export function OrderClient({ initialOrder, initialError, orderId }: OrderClient
     channel.bind("order-updated", (data: { order: Order }) => {
       setOrder(data.order)
 
-      // If ESP32 is connected, send the status
-      if (isConnected && data.order.status) {
-        sendStatus(data.order.status)
-      }
-
+   
       toast({
         title: "Order Updated",
         description: `Your order status has been updated to ${data.order.status}`,
@@ -108,7 +95,7 @@ export function OrderClient({ initialOrder, initialError, orderId }: OrderClient
       // Unsubscribe from Pusher channel when component unmounts
       pusherClient.unsubscribe(`order-${orderId}`)
     }
-  }, [orderId, toast, isConnected, sendStatus, initialOrder, initialError])
+  }, [orderId, toast, initialOrder, initialError])
 
   const handlePayment = () => {
     setIsPaymentDialogOpen(true)

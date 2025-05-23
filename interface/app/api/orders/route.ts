@@ -40,6 +40,7 @@ export async function POST(request: Request) {
             name: item.name,
             price: item.price,
             notes: item.notes || "",
+            
           })),
         },
       },

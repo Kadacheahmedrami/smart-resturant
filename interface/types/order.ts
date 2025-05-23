@@ -6,6 +6,7 @@ export interface OrderItem {
   name: string
   price: number
   notes?: string
+  image: string | null
 }
 
 export interface Rating {
@@ -23,6 +24,7 @@ export interface Order {
   rating?: Rating | null
   createdAt: string
   updatedAt: string
+
 }
 
 

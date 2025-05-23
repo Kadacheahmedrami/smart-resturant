@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
-import { ArrowLeft, Home, X, Check, Eye, Clock, Bell } from "lucide-react"
+import Image from "next/image"
+import { ArrowLeft, Home, X, Check, Eye, Clock, Bell, Utensils, MenuIcon } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 
 import { Button } from "@/components/ui/button"
@@ -14,7 +15,8 @@ import { ESP32StatusButton } from "@/components/esp32-status-button"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { useESP32 } from "@/lib/esp32-context"
 import { pusherClient } from "@/lib/pusher"
-import type { Order, OrderStatus } from "@/types/order"
+import type { Order } from "@/types/order"
+import { OrderStatus } from "@prisma/client"
 
 export default function ChefPage() {
   const [orders, setOrders] = useState<Order[]>([])
@@ -106,6 +108,7 @@ export default function ChefPage() {
     }
   }, [toast])
 
+  // Update the updateOrderStatus function to include the order ID
   const updateOrderStatus = async (orderId: string, newStatus: OrderStatus) => {
     try {
       const response = await fetch(`/api/orders/${orderId}`, {
@@ -129,9 +132,9 @@ export default function ChefPage() {
         setSelectedOrder({ ...selectedOrder, status: newStatus })
       }
 
-      // If ESP32 is connected, send the status update
-      if (isConnected) {
-        sendStatus(newStatus)
+      // If ESP32 is connected, send the status update (but not for PENDING)
+      if (isConnected && newStatus !== "PENDING") {
+        sendStatus(orderId, newStatus)
       }
 
       toast({
@@ -164,22 +167,31 @@ export default function ChefPage() {
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-2">
             <Link href="/">
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" className="shrink-0">
                 <Home className="h-5 w-5" />
                 <span className="sr-only">Home</span>
               </Button>
             </Link>
-            <h1 className="text-xl font-heading">Chef Dashboard</h1>
+            <h1 className="text-xl font-heading truncate">Chef Dashboard</h1>
           </div>
-          <div className="flex items-center gap-4">
+
+          {/* Desktop navigation */}
+          <div className="hidden md:flex items-center gap-4">
             <ThemeToggle />
             <ESP32StatusButton />
             <Link href="/">
               <Button variant="ghost" size="sm" className="gap-1">
                 <ArrowLeft className="h-4 w-4" />
-                Back to Home
+                <span>Back to Home</span>
               </Button>
             </Link>
+          </div>
+
+          {/* Mobile navigation */}
+          <div className="flex md:hidden items-center gap-2">
+            <ThemeToggle />
+            <ESP32StatusButton />
+            <MobileMenu />
           </div>
         </div>
       </header>
@@ -254,17 +266,50 @@ export default function ChefPage() {
                               </div>
                             </CardHeader>
                             <CardContent className="pb-2">
-                              <div className="space-y-1">
-                                {order.items.slice(0, 2).map((item, index) => (
-                                  <div key={index} className="flex justify-between">
-                                    <p>
-                                      {item.quantity}x {item.name}
-                                    </p>
+                              <div className="grid grid-cols-[80px_1fr] gap-4">
+                                <div className="relative h-20 w-20 rounded-md overflow-hidden">
+                                  {order.items[0]?.menuItemId ? (
+                                    <Image
+                                      src={
+                                        order.items[0].image ||
+                                        `/placeholder.svg?height=80&width=80&text=${encodeURIComponent(order.items[0].name)}`
+                                      }
+                                      alt={order.items[0].name}
+                                      fill
+                                      className="object-cover"
+                                    />
+                                  ) : (
+                                    <div className="bg-muted h-full w-full flex items-center justify-center">
+                                      <Utensils className="h-8 w-8 text-muted-foreground/50" />
+                                    </div>
+                                  )}
+                                </div>
+                                <div>
+                                  <div className="space-y-1">
+                                    {order.items.slice(0, 2).map((item, index) => (
+                                      <div key={index} className="flex justify-between">
+                                        <p className="font-medium">
+                                          {item.quantity}x {item.name}
+                                        </p>
+                                        <p className="text-sm text-muted-foreground">
+                                          ${(item.price * item.quantity).toFixed(2)}
+                                        </p>
+                                      </div>
+                                    ))}
+                                    {order.items.length > 2 && (
+                                      <p className="text-sm text-muted-foreground">
+                                        +{order.items.length - 2} more items
+                                      </p>
+                                    )}
                                   </div>
-                                ))}
-                                {order.items.length > 2 && (
-                                  <p className="text-sm text-muted-foreground">+{order.items.length - 2} more items</p>
-                                )}
+                                  <div className="mt-2 text-xs text-muted-foreground">
+                                    Ordered{" "}
+                                    {new Date(order.createdAt).toLocaleTimeString([], {
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })}
+                                  </div>
+                                </div>
                               </div>
                             </CardContent>
                             <CardFooter className="flex justify-between pt-2">
@@ -329,17 +374,48 @@ export default function ChefPage() {
                           </div>
                         </CardHeader>
                         <CardContent className="pb-2">
-                          <div className="space-y-1">
-                            {order.items.slice(0, 2).map((item, index) => (
-                              <div key={index} className="flex justify-between">
-                                <p>
-                                  {item.quantity}x {item.name}
-                                </p>
+                          <div className="grid grid-cols-[80px_1fr] gap-4">
+                            <div className="relative h-20 w-20 rounded-md overflow-hidden">
+                              {order.items[0]?.menuItemId ? (
+                                <Image
+                                  src={
+                                    order.items[0].image ||
+                                    `/placeholder.svg?height=80&width=80&text=${encodeURIComponent(order.items[0].name)}`
+                                  }
+                                  alt={order.items[0].name}
+                                  fill
+                                  className="object-cover"
+                                />
+                              ) : (
+                                <div className="bg-muted h-full w-full flex items-center justify-center">
+                                  <Utensils className="h-8 w-8 text-muted-foreground/50" />
+                                </div>
+                              )}
+                            </div>
+                            <div>
+                              <div className="space-y-1">
+                                {order.items.slice(0, 2).map((item, index) => (
+                                  <div key={index} className="flex justify-between">
+                                    <p className="font-medium">
+                                      {item.quantity}x {item.name}
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                      ${(item.price * item.quantity).toFixed(2)}
+                                    </p>
+                                  </div>
+                                ))}
+                                {order.items.length > 2 && (
+                                  <p className="text-sm text-muted-foreground">+{order.items.length - 2} more items</p>
+                                )}
                               </div>
-                            ))}
-                            {order.items.length > 2 && (
-                              <p className="text-sm text-muted-foreground">+{order.items.length - 2} more items</p>
-                            )}
+                              <div className="mt-2 text-xs text-muted-foreground">
+                                Ordered{" "}
+                                {new Date(order.createdAt).toLocaleTimeString([], {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </div>
+                            </div>
                           </div>
                         </CardContent>
                         <CardFooter className="flex justify-between pt-2">
@@ -386,17 +462,48 @@ export default function ChefPage() {
                           </div>
                         </CardHeader>
                         <CardContent className="pb-2">
-                          <div className="space-y-1">
-                            {order.items.slice(0, 2).map((item, index) => (
-                              <div key={index} className="flex justify-between">
-                                <p>
-                                  {item.quantity}x {item.name}
-                                </p>
+                          <div className="grid grid-cols-[80px_1fr] gap-4">
+                            <div className="relative h-20 w-20 rounded-md overflow-hidden">
+                              {order.items[0]?.menuItemId ? (
+                                <Image
+                                  src={
+                                    order.items[0].image ||
+                                    `/placeholder.svg?height=80&width=80&text=${encodeURIComponent(order.items[0].name)}`
+                                  }
+                                  alt={order.items[0].name}
+                                  fill
+                                  className="object-cover"
+                                />
+                              ) : (
+                                <div className="bg-muted h-full w-full flex items-center justify-center">
+                                  <Utensils className="h-8 w-8 text-muted-foreground/50" />
+                                </div>
+                              )}
+                            </div>
+                            <div>
+                              <div className="space-y-1">
+                                {order.items.slice(0, 2).map((item, index) => (
+                                  <div key={index} className="flex justify-between">
+                                    <p className="font-medium">
+                                      {item.quantity}x {item.name}
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                      ${(item.price * item.quantity).toFixed(2)}
+                                    </p>
+                                  </div>
+                                ))}
+                                {order.items.length > 2 && (
+                                  <p className="text-sm text-muted-foreground">+{order.items.length - 2} more items</p>
+                                )}
                               </div>
-                            ))}
-                            {order.items.length > 2 && (
-                              <p className="text-sm text-muted-foreground">+{order.items.length - 2} more items</p>
-                            )}
+                              <div className="mt-2 text-xs text-muted-foreground">
+                                Ordered{" "}
+                                {new Date(order.createdAt).toLocaleTimeString([], {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </div>
+                            </div>
                           </div>
                         </CardContent>
                         <CardFooter className="flex justify-between pt-2">
@@ -459,6 +566,43 @@ export default function ChefPage() {
 
       {/* Hidden audio element for notification sound */}
       <audio ref={notificationSound} src="/notification.mp3" preload="auto" />
+    </div>
+  )
+}
+
+function MobileMenu() {
+  const [isOpen, setIsOpen] = useState(false)
+
+  return (
+    <div className="relative">
+      <Button variant="ghost" size="icon" onClick={() => setIsOpen(!isOpen)}>
+        <MenuIcon className="h-5 w-5" />
+      </Button>
+
+      {isOpen && (
+        <div className="absolute right-0 top-10 w-48 rounded-md border bg-background shadow-lg">
+          <div className="py-1">
+            <Link href="/" className="block px-4 py-2 text-sm hover:bg-muted" onClick={() => setIsOpen(false)}>
+              <div className="flex items-center gap-2">
+                <Home className="h-4 w-4" />
+                <span>Home</span>
+              </div>
+            </Link>
+            <Link href="/menu" className="block px-4 py-2 text-sm hover:bg-muted" onClick={() => setIsOpen(false)}>
+              <div className="flex items-center gap-2">
+                <Utensils className="h-4 w-4" />
+                <span>Menu</span>
+              </div>
+            </Link>
+            <Link href="/orders" className="block px-4 py-2 text-sm hover:bg-muted" onClick={() => setIsOpen(false)}>
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                <span>Orders</span>
+              </div>
+            </Link>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -3,51 +3,45 @@
 #include <ArduinoJson.h>
 
 // Configuration
-struct Config {
-  // Network settings (set these to your WiFi credentials)
-  const char* ssid = "VOTRE_SSID";
-  const char* password = "VOTRE_MDP";
-  
-  // Hardware pins
-  const uint8_t ledGreen = 16;  // For ACCEPTED status
-  const uint8_t ledRed = 17;    // For REJECTED status
-  const uint8_t ledBlue = 18;   // For READY status
-  const uint8_t ledYellow = 5;  // For WiFi connection indicator
-  const uint8_t buzzer = 19;
-  
-  // Timing (milliseconds)
-  const unsigned long buzzerDuration = 3000; // 3 seconds buzzer sound
-  const unsigned long ledDuration = 10000;   // 10 seconds LED indication
-  const unsigned int buzzerTone = 1000;      // 1kHz tone for general alerts
-  const unsigned int readyTone = 1500;       // Higher tone for READY status
-} config;
+const char* ssid = "qqq"; // your wifi name 
+const char* password = "12345678"; // wifi password
+
+// Hardware pins
+const int ledGreen = 16;  // For ACCEPTED status
+const int ledRed = 17;    // For REJECTED status
+const int ledBlue = 18;   // For READY status
+const int buzzer = 19;
+
+// Timing (milliseconds)
+const unsigned long buzzerDuration = 3000; // 3 seconds
+const unsigned long ledDuration = 10000;   // 10 seconds
+const unsigned long readyLedDuration = 3000; // 3 seconds for ready status
+const unsigned int buzzerTone = 1000;      // 1kHz tone
+const unsigned int readyTone = 1500;       // Higher tone for READY
 
 // Create web server on port 80
 WebServer server(80);
 
 // Status tracking
-String currentStatus = "none";  // Possible values: "pending", "accepted", "rejected", "ready", "none"
+String currentStatus = "none";
 unsigned long buzzerStartTime = 0;
 unsigned long ledStartTime = 0;
 bool buzzerActive = false;
 bool ledActive = false;
-bool wifiConnected = false;
 
 void setup() {
   Serial.begin(115200);
   
   // Initialize pins
-  pinMode(config.ledRed, OUTPUT);
-  pinMode(config.ledGreen, OUTPUT);
-  pinMode(config.ledBlue, OUTPUT);
-  pinMode(config.ledYellow, OUTPUT);
-  pinMode(config.buzzer, OUTPUT);
+  pinMode(ledRed, OUTPUT);
+  pinMode(ledGreen, OUTPUT);
+  pinMode(ledBlue, OUTPUT);
+  pinMode(buzzer, OUTPUT);
   
   // Turn all LEDs off initially
-  digitalWrite(config.ledRed, LOW);
-  digitalWrite(config.ledGreen, LOW);
-  digitalWrite(config.ledBlue, LOW);
-  digitalWrite(config.ledYellow, LOW);
+  digitalWrite(ledRed, LOW);
+  digitalWrite(ledGreen, LOW);
+  digitalWrite(ledBlue, LOW);
   
   // Connect to WiFi
   connectWiFi();
@@ -62,47 +56,34 @@ void setup() {
 
 void connectWiFi() {
   Serial.print("Connecting to WiFi: ");
-  Serial.println(config.ssid);
+  Serial.println(ssid);
   
-  WiFi.begin(config.ssid, config.password);
+  WiFi.begin(ssid, password);
   
-  int attempts = 0;
-  while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+  while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
-    attempts++;
   }
   
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("\nWiFi connected!");
-    Serial.print("IP address: ");
-    Serial.println(WiFi.localIP());
-    digitalWrite(config.ledYellow, HIGH); // WiFi indicator ON
-    wifiConnected = true;
-  } else {
-    Serial.println("\nWiFi connection failed!");
-    digitalWrite(config.ledYellow, LOW); // WiFi indicator OFF
-    wifiConnected = false;
-  }
+  Serial.println("\nWiFi connected!");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+}
+
+void setCorsHeaders() {
+  server.sendHeader("Access-Control-Allow-Origin", "*");
+  server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
 }
 
 void setupServerRoutes() {
-  // CORS Headers setup function
-  auto setCorsHeaders = []() {
-    server.sendHeader("Access-Control-Allow-Origin", "*");
-    server.sendHeader("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS");
-    server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
-  };
-
-  // Route to get device info and current status
-  server.on("/info", HTTP_GET, [setCorsHeaders]() {
+  // Get device info and current status
+  server.on("/info", HTTP_GET, []() {
     setCorsHeaders();
     
-    StaticJsonDocument<256> doc;
+    StaticJsonDocument<200> doc;
     doc["status"] = currentStatus;
-    doc["wifi_connected"] = wifiConnected;
     doc["ip"] = WiFi.localIP().toString();
-    doc["mac"] = WiFi.macAddress();
     
     String response;
     serializeJson(doc, response);
@@ -110,165 +91,188 @@ void setupServerRoutes() {
     server.send(200, "application/json", response);
   });
   
-  // Route to update order status
-  server.on("/update", HTTP_POST, [setCorsHeaders]() {
+  // Update order status
+  server.on("/update", HTTP_POST, []() {
     setCorsHeaders();
     
     if (server.hasArg("plain")) {
       String body = server.arg("plain");
       
-      StaticJsonDocument<256> doc;
+      StaticJsonDocument<200> doc;
       DeserializationError error = deserializeJson(doc, body);
       
-      if (error) {
-        server.send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
-        return;
-      }
-      
-      if (!doc.containsKey("status")) {
-        server.send(400, "application/json", "{\"error\":\"Missing status field\"}");
+      if (error || !doc.containsKey("status")) {
+        server.send(400, "application/json", "{\"error\":\"Invalid request\"}");
         return;
       }
       
       String newStatus = doc["status"].as<String>();
       updateStatusIndicators(newStatus);
       
-      StaticJsonDocument<128> responseDoc;
-      responseDoc["success"] = true;
-      responseDoc["status"] = currentStatus;
-      
-      String response;
-      serializeJson(responseDoc, response);
-      
-      server.send(200, "application/json", response);
+      server.send(200, "application/json", "{\"success\":true}");
     } else {
-      server.send(400, "application/json", "{\"error\":\"No body sent\"}");
+      server.send(400, "application/json", "{\"error\":\"No data\"}");
     }
   });
   
-  // Route to test buzzer
-  server.on("/test/buzzer", HTTP_POST, [setCorsHeaders]() {
+  // Test routes for individual components
+  server.on("/red", HTTP_GET, []() {
     setCorsHeaders();
-    
-    tone(config.buzzer, config.buzzerTone);
-    buzzerStartTime = millis();
-    buzzerActive = true;
-    
-    server.send(200, "application/json", "{\"success\":true}");
+    stopAllComponents();
+    digitalWrite(ledRed, HIGH);
+    server.send(200, "application/json", "{\"message\":\"Red LED turned on\"}");
   });
   
-  // Handle CORS preflight requests
-  server.on("/update", HTTP_OPTIONS, [setCorsHeaders]() {
+  server.on("/green", HTTP_GET, []() {
+    setCorsHeaders();
+    stopAllComponents();
+    digitalWrite(ledGreen, HIGH);
+    server.send(200, "application/json", "{\"message\":\"Green LED turned on\"}");
+  });
+  
+  server.on("/blue", HTTP_GET, []() {
+    setCorsHeaders();
+    stopAllComponents();
+    digitalWrite(ledBlue, HIGH);
+    server.send(200, "application/json", "{\"message\":\"Blue LED turned on\"}");
+  });
+  
+  server.on("/buzz", HTTP_GET, []() {
+    setCorsHeaders();
+    stopAllComponents();
+    tone(buzzer, buzzerTone, 2000); // 2 second buzz
+    server.send(200, "application/json", "{\"message\":\"Buzzer activated\"}");
+  });
+  
+  // Handle OPTIONS requests for CORS
+  server.on("/info", HTTP_OPTIONS, []() {
     setCorsHeaders();
     server.send(204);
   });
   
-  server.on("/test/buzzer", HTTP_OPTIONS, [setCorsHeaders]() {
+  server.on("/update", HTTP_OPTIONS, []() {
     setCorsHeaders();
     server.send(204);
   });
   
-  // Handle 404
+  server.on("/red", HTTP_OPTIONS, []() {
+    setCorsHeaders();
+    server.send(204);
+  });
+  
+  server.on("/green", HTTP_OPTIONS, []() {
+    setCorsHeaders();
+    server.send(204);
+  });
+  
+  server.on("/blue", HTTP_OPTIONS, []() {
+    setCorsHeaders();
+    server.send(204);
+  });
+  
+  server.on("/buzz", HTTP_OPTIONS, []() {
+    setCorsHeaders();
+    server.send(204);
+  });
+  
+  // 404 handler
   server.onNotFound([]() {
+    setCorsHeaders();
     server.send(404, "application/json", "{\"error\":\"Not found\"}");
   });
 }
 
+void stopAllComponents() {
+  // Turn off all LEDs
+  digitalWrite(ledRed, LOW);
+  digitalWrite(ledGreen, LOW);
+  digitalWrite(ledBlue, LOW);
+  
+  // Turn off buzzer
+  noTone(buzzer);
+  
+  // Reset flags
+  buzzerActive = false;
+  ledActive = false;
+}
+
 void updateStatusIndicators(const String& status) {
-  // Only process if status changed or is not empty
-  if (status.length() == 0 || (status == currentStatus && !buzzerActive && !ledActive)) {
-    return;
-  }
-  
-  // Update stored status
-  currentStatus = status.toLowerCase(); // Convert to lowercase for consistency
-  
-  // Turn off all indicator LEDs
-  digitalWrite(config.ledRed, LOW);
-  digitalWrite(config.ledGreen, LOW);
-  digitalWrite(config.ledBlue, LOW);
-  
-  // Set appropriate LED
+  if (status.length() == 0) return;
+
+  // FIRST: Stop any currently active components
+  stopAllComponents();
+
+  // Convert to lowercase and store
+  String lowercaseStatus = status;
+  lowercaseStatus.toLowerCase();
+  currentStatus = lowercaseStatus;
+
+  // Handle different statuses
   if (currentStatus == "rejected") {
-    digitalWrite(config.ledRed, HIGH);
+    digitalWrite(ledRed, HIGH);
     ledActive = true;
-    // Use standard tone for rejected
-    tone(config.buzzer, config.buzzerTone);
-  } else if (currentStatus == "accepted") {
-    digitalWrite(config.ledGreen, HIGH);
+    ledStartTime = millis();
+  } 
+  else if (currentStatus == "accepted") {
+    digitalWrite(ledGreen, HIGH);
     ledActive = true;
-    // Use standard tone for accepted
-    tone(config.buzzer, config.buzzerTone);
-  } else if (currentStatus == "ready") {
-    digitalWrite(config.ledBlue, HIGH);
+    ledStartTime = millis();
+  } 
+  else if (currentStatus == "ready") {
+    // For ready: Both LED and buzzer turn on simultaneously for 3 seconds
+    digitalWrite(ledBlue, HIGH);
+    tone(buzzer, readyTone);
     ledActive = true;
-    // Use higher tone for ready status
-    tone(config.buzzer, config.readyTone);
-  } else if (currentStatus == "pending") {
-    // No LED for pending, but short beep
-    tone(config.buzzer, config.buzzerTone, 500); // Short 500ms beep
-    return; // Exit early as we don't need LED timing for pending
-  } else {
-    // Unknown status, no action
-    return;
+    buzzerActive = true;
+    ledStartTime = millis();
+    buzzerStartTime = millis();
+  } 
+  else {
+    return; // Unknown status
   }
-  
-  // Track when LEDs were turned on
-  ledStartTime = millis();
-  
-  // Activate buzzer for status change
-  buzzerStartTime = millis();
-  buzzerActive = true;
-  
-  Serial.print("Status updated: ");
+
+  Serial.print("Status: ");
   Serial.println(currentStatus);
 }
 
 void manageBuzzerAndLeds() {
   unsigned long currentTime = millis();
   
-  // Check if buzzer should be turned off
-  if (buzzerActive && (currentTime - buzzerStartTime >= config.buzzerDuration)) {
-    noTone(config.buzzer);
-    buzzerActive = false;
-    Serial.println("Buzzer turned off");
-  }
-  
-  // Check if LEDs should be turned off
-  if (ledActive && (currentTime - ledStartTime >= config.ledDuration)) {
-    digitalWrite(config.ledRed, LOW);
-    digitalWrite(config.ledGreen, LOW);
-    digitalWrite(config.ledBlue, LOW);
-    ledActive = false;
-    Serial.println("LEDs turned off");
-  }
-  
-  // Check WiFi connection periodically
-  static unsigned long lastWifiCheck = 0;
-  if (currentTime - lastWifiCheck >= 30000) { // Every 30 seconds
-    lastWifiCheck = currentTime;
+  // Special handling for "ready" status
+  if (currentStatus == "ready") {
+    // Turn off LED after 3 seconds
+    if (ledActive && (currentTime - ledStartTime >= readyLedDuration)) {
+      digitalWrite(ledBlue, LOW);
+      ledActive = false;
+    }
     
-    if (WiFi.status() != WL_CONNECTED && wifiConnected) {
-      // We were connected but lost connection
-      Serial.println("WiFi connection lost!");
-      digitalWrite(config.ledYellow, LOW); // WiFi indicator OFF
-      wifiConnected = false;
-      
-      // Try to reconnect
-      connectWiFi();
-    } else if (WiFi.status() == WL_CONNECTED && !wifiConnected) {
-      // We've reconnected
-      Serial.println("WiFi reconnected!");
-      digitalWrite(config.ledYellow, HIGH); // WiFi indicator ON
-      wifiConnected = true;
+    // Turn off buzzer after 3 seconds
+    if (buzzerActive && (currentTime - buzzerStartTime >= readyLedDuration)) {
+      noTone(buzzer);
+      buzzerActive = false;
+    }
+  } else {
+    // Normal handling for other statuses
+    // Turn off buzzer after duration
+    if (buzzerActive && (currentTime - buzzerStartTime >= buzzerDuration)) {
+      noTone(buzzer);
+      buzzerActive = false;
+    }
+    
+    // Turn off LEDs after duration - FIXED: Only turn off the specific LED
+    if (ledActive && (currentTime - ledStartTime >= ledDuration)) {
+      if (currentStatus == "rejected") {
+        digitalWrite(ledRed, LOW);
+      } else if (currentStatus == "accepted") {
+        digitalWrite(ledGreen, LOW);
+      }
+      // Note: Blue LED for "ready" is handled in the special case above
+      ledActive = false;
     }
   }
 }
 
 void loop() {
-  // Handle client requests
   server.handleClient();
-  
-  // Check and manage buzzer and LED timing
   manageBuzzerAndLeds();
 }
