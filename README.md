@@ -202,11 +202,11 @@ struct Config {
 #### 2. **Software Installation**
 ```bash
 # Clone or download the project
-git clone https://github.com/your-username/esp32-status-indicator.git
-cd esp32-status-indicator
+git clone https://github.com/your-username/smart-resturant.git
+cd smart-resturant
 
 # Open in Arduino IDE
-arduino esp32-status-indicator.ino
+arduino smart-resturant.ino
 ```
 
 #### 3. **Configuration**
@@ -663,8 +663,8 @@ We welcome contributions from the community! Here's how you can help make this p
 
 1. **🍴 Fork the Repository**
    ```bash
-   git clone https://github.com/your-username/esp32-status-indicator.git
-   cd esp32-status-indicator
+   git clone https://github.com/your-username/smart-resturant.git
+   cd smart-resturant
    ```
 
 2. **🌿 Create a Feature Branch**
@@ -748,8 +748,8 @@ If this project helped you, please consider:
 
 ### 📞 **Connect With Us**
 
-- 🐛 **Issues**: [GitHub Issues](https://github.com/your-username/esp32-status-indicator/issues)
-- 💬 **Discussions**: [GitHub Discussions](https://github.com/kadacheahmedrami/smart-resturant/discussions)
+- 🐛 **Issues**: [GitHub Issues](https://github.com/Kadacheahmedrami/smart-resturant/issues)
+- 💬 **Discussions**: [GitHub Discussions](https://github.com/Kadacheahmedrami/smart-resturant/discussions)
 - 📧 **Email**: a_kadache@estin.dz
 - 🐦 **Twitter**: [@your-handle](https://twitter.com/your-handle)
 
@@ -761,7 +761,7 @@ If this project helped you, please consider:
 
 _"Making IoT accessible, one LED at a time!"_
 
-[![Made with Love](https://img.shields.io/badge/Made%20with-❤️-red.svg)](https://github.com/your-username/esp32-status-indicator)
-[![Built for Makers](https://img.shields.io/badge/Built%20for-Makers-blue.svg)](https://github.com/your-username/esp32-status-indicator)
+[![Made with Love](https://img.shields.io/badge/Made%20with-❤️-red.svg)](https://github.com/your-username/smart-resturant)
+[![Built for Makers](https://img.shields.io/badge/Built%20for-Makers-blue.svg)](https://github.com/your-username/smart-resturant)
 
 </div>
