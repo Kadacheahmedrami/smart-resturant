@@ -1,4 +1,4 @@
-# ESP32 Status Indicator 🚨✨
+# ESP32 smart-resturantr 🚨✨
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT) 
 [![ESP32](https://img.shields.io/badge/Platform-ESP32-green)](https://www.espressif.com/en/products/socs/esp32) 
@@ -749,8 +749,8 @@ If this project helped you, please consider:
 ### 📞 **Connect With Us**
 
 - 🐛 **Issues**: [GitHub Issues](https://github.com/your-username/esp32-status-indicator/issues)
-- 💬 **Discussions**: [GitHub Discussions](https://github.com/your-username/esp32-status-indicator/discussions)
-- 📧 **Email**: your-email@example.com
+- 💬 **Discussions**: [GitHub Discussions](https://github.com/kadacheahmedrami/smart-resturant/discussions)
+- 📧 **Email**: a_kadache@estin.dz
 - 🐦 **Twitter**: [@your-handle](https://twitter.com/your-handle)
 
 ---
