@@ -742,7 +742,7 @@ If this project helped you, please consider:
 - ⭐ **Starring this repository**
 - 🐛 **Reporting bugs** via GitHub Issues
 - 💡 **Suggesting features** for future versions
-- 📱 **Sharing** with your maker community
+- 📱 **Sharing** with your rankiha community
 
 ---
 
@@ -757,7 +757,7 @@ If this project helped you, please consider:
 
 <div align="center">
 
-**Built with ❤️ by the maker community**
+**Built with ❤️ by the rankiha community**
 
 _"Making IoT accessible, one LED at a time!"_
 
